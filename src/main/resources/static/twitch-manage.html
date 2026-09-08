@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch 頻道與機器人管理頁面</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 圖示 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border-radius: 10px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .badge-joined { background-color: #198754; }
+        .badge-left { background-color: #6c757d; }
+        .btn-twitch { background-color: #9146FF; color: white; }
+        .btn-twitch:hover { background-color: #772ce8; color: white; }
+    </style>
+</head>
+<body class="py-4">
+
+<div class="container">
+    <!-- 頂部導覽列與返回主頁按鈕 -->
+    <div class="d-flex align-items-center justify-content-between mb-4 bg-white p-3 rounded shadow-sm">
+        <div class="d-flex align-items-center gap-3">
+            <a href="/" class="btn btn-outline-dark btn-sm">
+                <i class="fa-solid fa-house me-1"></i> 回首頁
+            </a>
+            <h4 class="m-0"><i class="fa-brands fa-twitch text-primary me-2"></i>Twitch 頻道管理中心</h4>
+        </div>
+
+        <div class="d-flex gap-2">
+            <!-- 🎯 新增前往監控頁面的按鈕 -->
+            <a href="/twitch-monitor.html" class="btn btn-twitch btn-sm">
+                <i class="fa-solid fa-desktop me-1"></i> 前往聊天室監控
+            </a>
+            <button class="btn btn-outline-secondary btn-sm" onclick="loadChannels()">
+                <i class="fa-solid fa-rotate me-1"></i> 重新整理
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 左側：新增 / 編輯表單 -->
+        <div class="col-lg-4">
+            <div class="card p-3">
+                <h5 class="card-title mb-3" id="formTitle"><i class="fa-solid fa-plus me-2"></i>新增頻道</h5>
+                <form id="channelForm">
+                    <input type="hidden" id="channelId">
+
+                    <div class="mb-3">
+                        <label class="form-label">台主名稱</label>
+                        <input type="text" class="form-control" id="nameInput" placeholder="例如: 統神" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Twitch 頻道帳號 (Channel Name)</label>
+                        <input type="text" class="form-control" id="channelNameInput" placeholder="例如: asiagodtonegg3be0" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">身份 / 標籤 (Pro)</label>
+                        <input type="text" class="form-control" id="proInput" value="USER">
+                    </div>
+
+                    <div class="mb-3" id="jolGroup">
+                        <label class="form-label">預設狀態</label>
+                        <select class="form-select" id="jolInput">
+                            <option value="LEFT">LEFT (不安裝)</option>
+                            <option value="JOINED">JOINED (直接加入)</option>
+                        </select>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-twitch" id="submitBtn">儲存資料</button>
+                        <button type="button" class="btn btn-light d-none" id="cancelEditBtn" onclick="resetForm()">取消編輯</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 右側：資料表清單與機器人控制 -->
+        <div class="col-lg-8">
+            <div class="card p-3">
+                <h5 class="card-title mb-3"><i class="fa-solid fa-list me-2"></i>頻道與機器人連線狀態</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>台主名稱</th>
+                            <th>頻道帳號</th>
+                            <th>機器人狀態</th>
+                            <th>身份</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="channelTableBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 發送訊息 Modal -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-regular fa-paper-plane me-2"></i>發送訊息至聊天室</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>目標頻道：<strong id="targetChannelDisplay" class="text-primary"></strong></p>
+                <input type="hidden" id="targetChannelName">
+                <div class="mb-3">
+                    <label class="form-label">訊息內容</label>
+                    <textarea class="form-control" id="messageContent" rows="3" placeholder="輸入要發送的文字..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-twitch" onclick="submitMessage()">發送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const API_BASE = '/tcj';
+    let sendMessageModal;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        sendMessageModal = new bootstrap.Modal(document.getElementById('sendMessageModal'));
+        loadChannels();
+        document.getElementById('channelForm').addEventListener('submit', handleFormSubmit);
+    });
+
+    // 1. 讀取所有頻道資料
+    function loadChannels() {
+        fetch(`${API_BASE}/all`)
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('channelTableBody');
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">目前資料庫無頻道紀錄</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(item => {
+                    const isJoined = item.joinOrLeave && (item.joinOrLeave.toUpperCase() === 'JOINED' || item.joinOrLeave.toUpperCase() === 'JOIN');
+                    const badgeClass = isJoined ? 'badge-joined' : 'badge-left';
+                    const statusText = isJoined ? '已連線 (JOINED)' : '已退出 (LEFT)';
+                    const toggleTarget = isJoined ? 'LEFT' : 'JOINED';
+                    const toggleBtnClass = isJoined ? 'btn-outline-danger' : 'btn-outline-success';
+                    const toggleBtnText = isJoined ? '離開頻道' : '加入頻道';
+
+                    return `
+                        <tr>
+                            <td>#${item.id}</td>
+                            <td><strong>${escapeHtml(item.name)}</strong></td>
+                            <td>
+                                <a href="https://twitch.tv/${item.channelName}" target="_blank" class="text-decoration-none">
+                                    ${escapeHtml(item.channelName)} <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                                </a>
+                            </td>
+                            <td><span class="badge ${badgeClass}">${statusText}</span></td>
+                            <td><span class="badge bg-light text-dark border">${escapeHtml(item.pro || 'USER')}</span></td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn ${toggleBtnClass}" onclick="toggleJOL(${item.id}, '${toggleTarget}')">
+                                        ${toggleBtnText}
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="openSendModal('${item.channelName}')" ${!isJoined ? 'disabled title="機器人須在頻道內才可發送"' : ''}>
+                                        <i class="fa-regular fa-paper-plane"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="editChannel(${item.id}, '${escapeHtml(item.name)}', '${escapeHtml(item.channelName)}', '${escapeHtml(item.pro || '')}')">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteChannel(${item.id})">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('channelTableBody').innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">讀取資料失敗</td></tr>';
+            });
+    }
+
+    // 2. 切換連線狀態 (JOINED / LEFT)
+    function toggleJOL(id, status) {
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('joinOrLeave', status);
+
+        fetch(`${API_BASE}/updateJOL`, { method: 'POST', body: formData })
+            .then(res => res.text())
+            .then(() => loadChannels())
+            .catch(err => alert('切換失敗: ' + err));
+    }
+
+    // 3. 儲存表單 (新增 / 編輯)
+    function handleFormSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('channelId').value;
+        const name = document.getElementById('nameInput').value;
+        const channelName = document.getElementById('channelNameInput').value;
+        const pro = document.getElementById('proInput').value;
+        const joinOrLeave = document.getElementById('jolInput').value;
+
+        let url;
+        if (id) {
+            const params = new URLSearchParams({ id, name, channelName, pro });
+            url = `${API_BASE}/update?${params.toString()}`;
+        } else {
+            const params = new URLSearchParams({ name, channelName, joinOrLeave, pro });
+            url = `${API_BASE}/save?${params.toString()}`;
+        }
+
+        fetch(url, { method: 'POST' })
+            .then(res => res.text())
+            .then(msg => {
+                alert(msg);
+                resetForm();
+                loadChannels();
+            })
+            .catch(err => alert('操作失敗: ' + err));
+    }
+
+    // 4. 編輯與重置
+    function editChannel(id, name, channelName, pro) {
+        document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-pen me-2"></i>修改頻道';
+        document.getElementById('channelId').value = id;
+        document.getElementById('nameInput').value = name;
+        document.getElementById('channelNameInput').value = channelName;
+        document.getElementById('proInput').value = pro;
+        document.getElementById('jolGroup').classList.add('d-none');
+        document.getElementById('submitBtn').innerText = '儲存修改';
+        document.getElementById('cancelEditBtn').classList.remove('d-none');
+    }
+
+    function resetForm() {
+        document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-plus me-2"></i>新增頻道';
+        document.getElementById('channelId').value = '';
+        document.getElementById('channelForm').reset();
+        document.getElementById('proInput').value = 'USER';
+        document.getElementById('jolGroup').classList.remove('d-none');
+        document.getElementById('submitBtn').innerText = '儲存資料';
+        document.getElementById('cancelEditBtn').classList.add('d-none');
+    }
+
+    // 5. 刪除頻道
+    function deleteChannel(id) {
+        if (!confirm(`確定要刪除 ID #${id} 嗎？`)) return;
+        fetch(`${API_BASE}/delete?id=${id}`, { method: 'POST' })
+            .then(res => res.text())
+            .then(msg => {
+                alert(msg);
+                loadChannels();
+            });
+    }
+
+    // 6. 發送訊息功能
+    function openSendModal(channelName) {
+        document.getElementById('targetChannelDisplay').innerText = channelName;
+        document.getElementById('targetChannelName').value = channelName;
+        document.getElementById('messageContent').value = '';
+        sendMessageModal.show();
+    }
+
+    function submitMessage() {
+        const channelName = document.getElementById('targetChannelName').value;
+        const msg = document.getElementById('messageContent').value.trim();
+        if (!msg) return alert('請輸入訊息！');
+
+        const params = new URLSearchParams({ channelName, msg });
+        fetch(`${API_BASE}/send?${params.toString()}`, { method: 'POST' })
+            .then(res => res.text())
+            .then(result => {
+                alert(result);
+                sendMessageModal.hide();
+            });
+    }
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch 聊天室與直播監控中心</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 圖示 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .chat-card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .chat-box {
+            height: 520px;
+            overflow-y: auto;
+            background-color: #18181b;
+            color: #efeff1;
+            border-radius: 8px 8px 0 0;
+            padding: 16px;
+            font-family: Consolas, "Courier New", monospace;
+        }
+        .chat-user { font-weight: bold; color: #a970ff; margin-right: 4px; }
+        .chat-username { color: #adadb8; font-size: 0.85em; font-weight: normal; margin-right: 6px; }
+        .chat-bot-user { font-weight: bold; color: #ffb703; background-color: rgba(255, 183, 3, 0.15); padding: 2px 6px; border-radius: 4px; margin-right: 4px; }
+        .chat-message { margin-bottom: 8px; line-height: 1.4; word-break: break-word; }
+        .chat-time { color: #adadb8; font-size: 0.8em; margin-right: 6px; }
+        .chat-text { color: #efeff1; }
+        .btn-twitch { background-color: #9146FF; color: white; }
+        .btn-twitch:hover { background-color: #772ce8; color: white; }
+
+        /* 直播播放器容器樣式 */
+        .player-card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .player-container {
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="py-4">
+
+<div class="container-fluid px-4">
+    <!-- 頂部導覽 -->
+    <div class="d-flex align-items-center justify-content-between mb-3 bg-white p-3 rounded shadow-sm">
+        <div class="d-flex align-items-center gap-3">
+            <a href="/twitch-manage.html" class="btn btn-outline-dark btn-sm">
+                <i class="fa-solid fa-arrow-left me-1"></i> 返回管理頁
+            </a>
+            <h4 class="m-0"><i class="fa-brands fa-twitch text-primary me-2"></i>聊天室監控中心</h4>
+        </div>
+
+        <!-- 頻道選擇下拉選單 -->
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label m-0 text-nowrap fw-bold">選擇監控頻道：</label>
+            <select class="form-select form-select-sm" id="channelSelect" onchange="onChannelChange()" style="min-width: 200px;">
+                <option value="">載入中...</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 主內容區域：左右分割 -->
+    <div class="row g-3">
+        <!-- 左側：Twitch 直播畫面 (佔 7 欄寬) -->
+        <div class="col-lg-7 col-xl-8">
+            <div class="card player-card p-3 h-100 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="m-0"><i class="fa-solid fa-tv me-2 text-danger"></i>實況畫面：<span id="playerChannelDisplay" class="text-primary">-</span></h5>
+                    <span class="badge bg-danger">LIVE</span>
+                </div>
+
+                <!-- 直播 iframe 容器 -->
+                <div class="player-container h-100 d-flex align-items-center justify-content-center" id="twitchPlayerContainer">
+                    <div class="text-center text-muted py-5">請選擇頻道以載入實況畫面...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：聊天室監控區 (佔 5 欄寬) -->
+        <div class="col-lg-5 col-xl-4">
+            <div class="card chat-card">
+                <!-- 標頭資訊 -->
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <span class="badge bg-success me-2">● 監控中</span>
+                        目標：<strong id="currentChannelDisplay" class="text-primary">-</strong>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" id="autoScrollCheck" checked>
+                        <label class="form-check-input-label small text-muted" for="autoScrollCheck">自動捲動</label>
+                    </div>
+                </div>
+
+                <!-- 聊天訊息呈現區 -->
+                <div class="chat-box" id="chatBox">
+                    <div class="text-center text-muted my-5">請選擇頻道以開始監控聊天室訊息...</div>
+                </div>
+
+                <!-- 底部訊息發送區 -->
+                <div class="card-footer bg-light p-3">
+                    <form id="sendMessageForm" onsubmit="handleSendMessage(event)">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="msgInput" placeholder="請輸入要發送至聊天室的訊息..." autocomplete="off" disabled>
+                            <button class="btn btn-twitch" type="submit" id="sendBtn" disabled>
+                                <i class="fa-regular fa-paper-plane me-1"></i> 發送
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = '/tcj';
+    let pollInterval = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadJoinedChannels();
+    });
+
+    // 1. 載入目前已加入 (JOINED/JOIN) 的頻道清單
+    function loadJoinedChannels() {
+        fetch(`${API_BASE}/all`)
+            .then(res => res.json())
+            .then(channels => {
+                const select = document.getElementById('channelSelect');
+                // 過濾出狀態為 JOINED 或 JOIN 的頻道
+                const activeChannels = channels.filter(c =>
+                    c.joinOrLeave && (c.joinOrLeave.toUpperCase() === 'JOINED' || c.joinOrLeave.toUpperCase() === 'JOIN')
+                );
+
+                if (activeChannels.length === 0) {
+                    select.innerHTML = '<option value="">(無連線中的頻道)</option>';
+                    document.getElementById('chatBox').innerHTML = '<div class="text-center text-warning my-5">目前沒有連線中的頻道，請先至管理頁面點擊「加入頻道」。</div>';
+                    return;
+                }
+
+                select.innerHTML = activeChannels.map(c =>
+                    `<option value="${c.channelName}">${escapeHtml(c.name)} (${c.channelName})</option>`
+                ).join('');
+
+                // 預設選擇第一個頻道並開始輪詢
+                onChannelChange();
+            })
+            .catch(err => console.error('載入頻道清單失敗:', err));
+    }
+
+    // 2. 切換選擇頻道事件
+    function onChannelChange() {
+        const selectedChannel = document.getElementById('channelSelect').value;
+        const display = document.getElementById('currentChannelDisplay');
+        const playerDisplay = document.getElementById('playerChannelDisplay');
+        const msgInput = document.getElementById('msgInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        if (!selectedChannel) {
+            display.innerText = '-';
+            playerDisplay.innerText = '-';
+            msgInput.disabled = true;
+            sendBtn.disabled = true;
+            if (pollInterval) clearInterval(pollInterval);
+            updateTwitchPlayer(''); // 清空播放器
+            return;
+        }
+
+        display.innerText = selectedChannel;
+        playerDisplay.innerText = selectedChannel;
+        msgInput.disabled = false;
+        sendBtn.disabled = false;
+
+        // 載入 Twitch 直播畫面
+        updateTwitchPlayer(selectedChannel);
+
+        // 立即讀取一次並啟動 1.5 秒定時輪詢
+        fetchLogs(selectedChannel);
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => fetchLogs(selectedChannel), 1500);
+    }
+
+    // 3. 動態更新嵌入的 Twitch 實況畫面
+    function updateTwitchPlayer(channelName) {
+        const container = document.getElementById('twitchPlayerContainer');
+        if (!channelName) {
+            container.innerHTML = '<div class="text-center text-muted py-5">請選擇頻道以載入實況畫面...</div>';
+            return;
+        }
+
+        // 動態取得目前的主機名稱 (localhost 或 Domain)，供 Twitch 進行 parent 安全校驗
+        const hostname = window.location.hostname || 'localhost';
+
+        container.innerHTML = `
+            <div class="ratio ratio-16x9 w-100">
+                <iframe
+                    src="https://player.twitch.tv/?channel=${encodeURIComponent(channelName)}&parent=${encodeURIComponent(hostname)}&autoplay=true"
+                    allowfullscreen
+                    style="border:0;">
+                </iframe>
+            </div>
+        `;
+    }
+
+    // 4. 從後端獲取聊天日誌
+    function fetchLogs(channelName) {
+        fetch(`${API_BASE}/logs?channelName=${encodeURIComponent(channelName)}`)
+            .then(res => res.json())
+            .then(logs => {
+                renderLogs(logs);
+            })
+            .catch(err => console.error('讀取聊天日誌失敗:', err));
+    }
+
+    // 5. 渲染聊天紀錄到畫面上
+    function renderLogs(logs) {
+        const chatBox = document.getElementById('chatBox');
+
+        if (logs.length === 0) {
+            chatBox.innerHTML = '<div class="text-center text-muted my-5">（尚無聊天訊息...）</div>';
+            return;
+        }
+
+        chatBox.innerHTML = logs.map(log => {
+            // 判斷暱稱與帳號 ID 是否不同；若不同則顯示「暱稱 (@帳號ID)」，相同則直接顯示「暱稱」
+            const hasDifferentDisplayName = log.displayName && log.displayName.toLowerCase() !== log.userName.toLowerCase();
+
+            // 判斷是否為機器人帳號 (bowchanwau)
+            const isBot = log.userName && log.userName.toLowerCase() === 'bowchanwau';
+
+            const userHtml = isBot
+                ? `<span class="chat-bot-user">${escapeHtml(log.displayName)}</span><span class="chat-username">(@${escapeHtml(log.userName)})</span>`
+                : (hasDifferentDisplayName
+                    ? `<span class="chat-user">${escapeHtml(log.displayName)}</span><span class="chat-username">(@${escapeHtml(log.userName)})</span>`
+                    : `<span class="chat-user">${escapeHtml(log.userName)}</span>`);
+
+            return `
+                <div class="chat-message">
+                    <span class="chat-time">[${escapeHtml(log.time)}]</span>
+                    ${userHtml}:
+                    <span class="chat-text">${escapeHtml(log.message)}</span>
+                </div>
+            `;
+        }).join('');
+
+        // 自動捲動到底部
+        const autoScroll = document.getElementById('autoScrollCheck').checked;
+        if (autoScroll) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+
+    // 6. 底部發送訊息事件處理
+    function handleSendMessage(e) {
+        e.preventDefault();
+        const channelName = document.getElementById('channelSelect').value;
+        const msgInput = document.getElementById('msgInput');
+        const msg = msgInput.value.trim();
+
+        if (!channelName || !msg) return;
+
+        const params = new URLSearchParams({ channelName, msg });
+        fetch(`${API_BASE}/send?${params.toString()}`, { method: 'POST' })
+            .then(res => res.text())
+            .then(result => {
+                msgInput.value = ''; // 清空輸入框
+                fetchLogs(channelName); // 立即更新聊天室
+            })
+            .catch(err => alert('發送失敗: ' + err));
+    }
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+</script>
+</body>
+</html>

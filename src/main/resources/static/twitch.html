@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamGame | Twitch 即時監控</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <style>
+        body { background-color: #0f0f13; color: #efeff1; font-family: 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+        .navbar { background-color: #18181b; border-bottom: 1px solid #303032; }
+        .twitch-purple { color: #a970ff; }
+
+        /* 跑馬燈樣式 */
+        .marquee-wrapper {
+            background: linear-gradient(90deg, #a970ff, #772ce8);
+            color: white;
+            padding: 8px 0;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 2000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: opacity 0.5s ease-in-out;
+        }
+        .marquee-content {
+            display: inline-block;
+            white-space: nowrap;
+            padding-left: 100%;
+            animation: marquee-animation 15s linear infinite;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        @keyframes marquee-animation {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+        .fade-out { opacity: 0; pointer-events: none; }
+
+        /* 數據卡片樣式 */
+        .stat-card {
+            background-color: #1f1f23;
+            border: none;
+            border-radius: 12px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        .card-icon { font-size: 2rem; opacity: 0.8; }
+        .stat-value { font-size: 1.8rem; font-weight: bold; }
+        .stat-label { font-size: 0.85rem; color: #adadb8; letter-spacing: 1px; }
+
+        /* 日誌區域 */
+        #event-log {
+            height: 250px;
+            overflow-y: auto;
+            background: #09090b;
+            border-radius: 8px;
+            padding: 15px;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .log-entry { border-left: 3px solid #a970ff; padding-left: 10px; margin-bottom: 8px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div id="marquee-container" class="marquee-wrapper fade-out">
+    <div class="marquee-content">
+        <i class="bi bi-megaphone-fill me-2"></i>
+        <span id="marquee-text">等待新事件中...</span>
+    </div>
+</div>
+
+<nav class="navbar navbar-dark mb-5" style="margin-top: 45px;">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/"><i class="bi bi-arrow-left-circle me-2"></i>返回首頁</a>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-danger me-3"><i class="bi bi-broadcast me-1"></i> LIVE</span>
+            <span class="fw-bold twitch-purple"><i class="bi bi-twitch me-1"></i> Twitch Monitoring</span>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card stat-card p-4">
+                <div class="stat-label">當前觀眾</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <div class="stat-value text-white" id="viewer-count">1,248</div>
+                    <div class="card-icon twitch-purple"><i class="bi bi-people-fill"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card p-4">
+                <div class="stat-label">開台時長</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <div class="stat-value text-white" id="stream-time">02:14:55</div>
+                    <div class="card-icon text-info"><i class="bi bi-clock-history"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card p-4">
+                <div class="stat-label">本月訂閱</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <div class="stat-value text-white" id="sub-count">852</div>
+                    <div class="card-icon text-warning"><i class="bi bi-star-fill"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card p-4">
+                <div class="stat-label">今日斗內</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <div class="stat-value text-white" id="donation-amount">$4,250</div>
+                    <div class="card-icon text-success"><i class="bi bi-coin"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card stat-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="stat-label m-0 text-uppercase">即時事件日誌 (Event Log)</h6>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="addTestLog()">模擬新事件</button>
+                </div>
+                <div id="event-log">
+                    <div class="log-entry text-muted">[系統] 成功連線至 Twitch API...</div>
+                    <div class="log-entry text-muted">[系統] 正在監聽實況事件...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * 觸發智慧跑馬燈
+     * @param {string} msg - 訊息內容
+     * @param {number} sec - 顯示秒數
+     */
+    function triggerMarquee(msg, sec = 10) {
+        const container = document.getElementById('marquee-container');
+        const text = document.getElementById('marquee-text');
+
+        text.innerText = msg;
+        container.classList.remove('fade-out');
+
+        setTimeout(() => {
+            container.classList.add('fade-out');
+        }, sec * 1000);
+    }
+
+    /**
+     * 新增日誌紀錄
+     */
+    function addLog(message) {
+        const logBox = document.getElementById('event-log');
+        const now = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span class="twitch-purple">[${now}]</span> ${message}`;
+        logBox.prepend(entry); // 最新的放在最上面
+    }
+
+    /**
+     * 模擬測試功能
+     */
+    function addTestLog() {
+        const events = [
+            "感謝 小明 追隨了實況！",
+            "恭喜 大強 成為了 3 個月訂閱者！",
+            "收到來自 匿名乾爹 的 NT$ 500 斗內！",
+            "有新觀眾進入了聊天室。"
+        ];
+        const randomMsg = events[Math.floor(Math.random() * events.length)];
+        addLog(randomMsg);
+
+        // 如果包含斗內或訂閱，觸發跑馬燈
+        if (randomMsg.includes("斗內") || randomMsg.includes("訂閱")) {
+            triggerMarquee(`🔥 重大事件：${randomMsg}`, 12);
+        }
+    }
+
+    // 頁面載入後自動觸發一個歡迎訊息
+    window.onload = () => {
+        setTimeout(() => {
+            triggerMarquee("🚀 歡迎回來，Streamer！目前系統運作正常，Supabase 已連線。", 8);
+        }, 1500);
+    };
+    // 每 2 秒去後端抓一次真實訊息
+    function fetchRealLogs() {
+        fetch('/api/twitch/logs')
+            .then(res => res.json())
+            .then(logs => {
+                const logBox = document.getElementById('event-log');
+                logBox.innerHTML = ''; // 清空舊的
+
+                logs.forEach(msg => {
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    // 我們統一用當前網頁時間當顯示時間
+                    const now = new Date().toLocaleTimeString();
+                    entry.innerHTML = `<span class="twitch-purple">[${now}]</span> ${msg}`;
+                    logBox.appendChild(entry);
+                });
+            });
+    }
+
+    // 每 2000 毫秒執行一次
+    setInterval(fetchRealLogs, 2000);
+</script>
+
+</body>
+</html>

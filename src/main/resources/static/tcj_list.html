@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamGame | 頻道管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f4f7f6; font-family: sans-serif; }
+        .main-card { border: none; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .badge-role { font-size: 0.75rem; font-weight: bold; }
+        .table-responsive { max-height: 600px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/"><i class="bi bi-house-door me-2"></i>回首頁</a>
+        <span class="navbar-text text-white">Supabase 雲端資料庫模式</span>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card main-card p-4">
+                <h5 id="formTitle" class="fw-bold mb-3">新增紀錄</h5>
+                <input type="hidden" id="editTCJId">
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">台主名稱</label>
+                    <input type="text" id="tcjName" class="form-control" placeholder="輸入台主名稱">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Twitch ID</label>
+                    <input type="text" id="channelName" class="form-control" placeholder="例如: streamer123">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">分配權限</label>
+                    <select id="TCJPro" class="form-select">
+                        <option value="USER">普通使用者 (User)</option>
+                        <option value="VIP">重要嘉賓 (VIP)</option>
+                        <option value="ADMIN">管理員 (Admin)</option>
+                        <option value="MOD">房管 (Mod)</option>
+                    </select>
+                </div>
+
+                <div id="addBtnGroup">
+                    <button onclick="saveTCJ()" class="btn btn-primary w-100 fw-bold">確認存入 Supabase</button>
+                </div>
+                <div id="editBtnGroup" class="d-none">
+                    <button onclick="updateTCJ()" class="btn btn-warning w-100 fw-bold mb-2">更新資料</button>
+                    <button onclick="cancelEdit()" class="btn btn-outline-secondary w-100 btn-sm">取消編輯</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card main-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0">頻道管理清單</h5>
+                    <button onclick="loadTCJs()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>台主名稱</th>
+                            <th>頻道名稱</th>
+                            <th>權限</th>
+                            <th>是否加入頻道</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tCJTable">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 獲取所有資料
+    function loadTCJs() {
+        fetch('/tcj/all')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('tCJTable');
+                tbody.innerHTML = '';
+                data.forEach(tcj => {
+                    const roleClass = tcj.pro === 'ADMIN' ? 'bg-danger' :
+                                    tcj.pro === 'VIP' ? 'bg-warning text-dark' : 'bg-info';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><span class="text-muted">#${tcj.id}</span></td>
+                            <td class="fw-bold text-primary">${tcj.name}</td>
+                            <td><small>${tcj.channelName || 'N/A'}</small></td>
+                            <td><span class="badge badge-role ${roleClass}">${tcj.pro}</span></td>
+                            <td>
+                                <select class="tcj-selector" name="${tcj.id}" data-value="${tcj.joinOrLeave}">
+                                    <option value="JOINED">已加入</option>
+                                    <option value="LEFT">已離開</option>
+                                </select>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        onclick='startEdit(${JSON.stringify(tcj)})'>
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteTCJ(${tcj.id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.querySelectorAll('.tcj-selector').forEach(select => {
+                    const dbValue = select.getAttribute('data-value');
+                    if (dbValue) {
+                        // 這裡執行「安靜的修改」，不會觸發發送到後端的 updateJOL
+                        select.selectedIndex = (dbValue === "LEFT") ? 1 : 0;
+                    }
+                });
+            });
+
+    }
+
+    // 新增資料
+    function saveTCJ() {
+        const params = new URLSearchParams({
+            name: document.getElementById('tcjName').value,
+            channelName: document.getElementById('channelName').value,
+            pro: document.getElementById('TCJPro').value
+        });
+
+        if (!params.get('name')) return alert("名稱為必填項目！");
+
+        fetch(`/tcj/save?${params.toString()}`)
+            .then(res => res.text())
+            .then(data => {
+                alert(data);
+                clearForm();
+                loadTCJs();
+            });
+    }
+
+    // 啟動編輯模式
+    function startEdit(tcj) {
+        // 切換標題與顯示 ID
+        document.getElementById('formTitle').innerText = "編輯成員 #" + tcj.id;
+        document.getElementById('editTCJId').value = tcj.id;
+
+        // 填入現有資料
+        document.getElementById('tcjName').value = tcj.name;
+        document.getElementById('channelName').value = tcj.channelName;
+        document.getElementById('TCJPro').value = tcj.pro;
+
+        // 切換按鈕組
+        document.getElementById('addBtnGroup').classList.add('d-none');
+        document.getElementById('editBtnGroup').classList.remove('d-none');
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 執行更新
+    function updateTCJ() {
+        const id = document.getElementById('editTCJId').value;
+        const params = new URLSearchParams({
+            id: id,
+            name: document.getElementById('tcjName').value,
+            channelName: document.getElementById('channelName').value,
+            pro: document.getElementById('TCJPro').value
+        });
+
+        fetch(`/tcj/update?${params.toString()}`)
+            .then(res => res.text())
+            .then(data => {
+                alert(data);
+                cancelEdit();
+                loadTCJs();
+            });
+    }
+
+    // 刪除資料
+    function deleteTCJ(id) {
+        if (!confirm("確定要刪除此筆成員資料嗎？")) return;
+        fetch(`/tcj/delete?id=${id}`)
+            .then(res => res.text())
+            .then(data => {
+                alert(data);
+                loadTCJs();
+            });
+    }
+
+    // 取消編輯模式
+    function cancelEdit() {
+        document.getElementById('formTitle').innerText = "新增紀錄";
+        clearForm();
+        document.getElementById('addBtnGroup').classList.remove('d-none');
+        document.getElementById('editBtnGroup').classList.add('d-none');
+    }
+
+    // 清空表單
+    function clearForm() {
+        document.getElementById('editTCJId').value = '';
+        document.getElementById('tcjName').value = '';
+        document.getElementById('channelName').value = '';
+        document.getElementById('TCJPro').value = 'USER';
+    }
+    function updateJOL(id, joinOrLeave) {
+        alert("成功更改機器人狀態！");
+        // 使用 URLSearchParams 確保表單參數正確編碼
+        const params = new URLSearchParams();
+        params.append('id', id);
+        params.append('joinOrLeave', joinOrLeave);
+
+        fetch('/tcj/updateJOL', {
+            method: 'POST',
+            body: params, // 使用 body 傳送 POST 參數
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }).then(response => response.text()) // 讀取後端回傳的文字
+          .then(message => {
+              console.log(message);
+          })
+          .catch(error => console.error('發生錯誤:', error));
+    }
+    document.addEventListener('change', function(event) {
+        // 取得觸發變更事件的表單元件
+        const el = event.target;
+        const id = el.name;
+        const val = el.value;
+
+        console.log("偵測到 ID:", id, " 值:", val);
+        if(id) updateJOL(id, val);
+    });
+
+
+    window.onload = loadTCJs;
+</script>
+
+</body>
+</html>

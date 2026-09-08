@@ -1,0 +1,980 @@
+/* =========================================================
+   全域設定
+   ========================================================= */
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+
+    margin: 0;
+    padding: 0;
+
+    overflow: hidden;
+
+    background: transparent !important;
+}
+
+
+/* =========================================================
+   遊戲主畫面
+   ========================================================= */
+
+#game {
+    position: relative;
+
+    width: 100vw;
+    height: 100vh;
+
+    overflow: hidden;
+
+    background: transparent;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   木桌背景
+   ========================================================= */
+
+#table {
+    position: absolute;
+
+    left: 0;
+    bottom: 0;
+
+    width: 100%;
+    height: auto;
+
+    z-index: 1;
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    -webkit-user-drag: none;
+}
+
+
+/* =========================================================
+   左側固定重生盤子
+   ========================================================= */
+
+#revive-plate {
+    position: absolute;
+
+    /* 與 JS 的 RESPAWN_X 一致 */
+    left: 200px;
+
+    /* 盤子貼在桌面上 */
+    bottom: 105px;
+
+    /* 比布丁寬 */
+    width: 380px;
+    height: auto;
+
+    transform: translateX(-50%);
+
+    opacity: 1;
+
+    z-index: 5;
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    -webkit-user-drag: none;
+}
+
+/* =========================================================
+   布丁展示台
+   ========================================================= */
+
+#pudding-platform {
+    position: absolute;
+
+    /* 將展示台配置在畫面左側 */
+    left: 30%;
+
+    /* 從桌面往上 */
+    bottom: 145px;
+
+    width: 260px;
+
+    height: auto;
+
+    object-fit: contain;
+
+    pointer-events: none;
+
+    user-select: none;
+
+    z-index: 8;
+}
+
+/* =========================================================
+   桌面物件：雞蛋
+   ========================================================= */
+
+#eggObject {
+    position: absolute;
+
+    will-change: left;
+
+    left: 50%;
+
+    /* 往上移 */
+    bottom: 170px;
+
+    /* 放大 */
+    width: 170px;
+
+    z-index: 8;
+
+    pointer-events: none;
+    user-select: none;
+}
+
+
+#egg {
+    display: block;
+
+    will-change: transform;
+
+    width: 100%;
+    height: auto;
+
+    image-rendering: pixelated;
+
+    transform: rotate(65deg);
+
+    transform-origin: center center;
+
+    pointer-events: none;
+    user-select: none;
+
+    -webkit-user-drag: none;
+}
+
+/* =========================================================
+   雞蛋被撞時的小彈跳
+   ========================================================= */
+
+#egg.bump {
+    animation:
+        egg-bump 0.22s ease-out;
+}
+
+
+@keyframes egg-bump {
+
+    0% {
+        transform:
+            rotate(var(--egg-rotation))
+            translateY(0);
+    }
+
+    45% {
+        transform:
+            rotate(var(--egg-rotation))
+            translateY(-18px);
+    }
+
+    100% {
+        transform:
+            rotate(var(--egg-rotation))
+            translateY(0);
+    }
+}
+
+/* =========================================================
+   雞蛋被撞後彈起
+   ========================================================= */
+
+#eggObject.egg-bump {
+    animation:
+        egg-bump-animation
+        0.28s
+        ease-out;
+}
+
+
+@keyframes egg-bump-animation {
+
+    0% {
+        transform:
+            translateY(0);
+    }
+
+    40% {
+        transform:
+            translateY(-22px);
+    }
+
+    100% {
+        transform:
+            translateY(0);
+    }
+}
+
+/* =========================================================
+   怪物層
+   ========================================================= */
+
+#monster-layer {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 9;
+
+    overflow: hidden;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   布丁角色容器
+   ---------------------------------------------------------
+   位置由這個容器負責。
+   HP 和布丁一起移動。
+   ========================================================= */
+
+#pudding-container {
+    position: absolute;
+
+    left: 200px;
+
+    /* 整體高度 */
+    bottom: 180px;
+
+    width: 280px;
+
+    transform: translateX(-50%);
+
+    z-index: 10;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   HP 血條
+   ---------------------------------------------------------
+   平常隱藏
+   受到傷害時才顯示
+   ========================================================= */
+
+#hp-container {
+    width: 230px;
+    height: 18px;
+
+    margin: 0 auto 12px auto;
+
+    border: 3px solid #222;
+
+    background: rgba(0, 0, 0, 0.55);
+
+    box-sizing: border-box;
+
+    /* 預設隱藏 */
+    opacity: 0;
+
+    transition: opacity 0.25s ease;
+
+    pointer-events: none;
+}
+
+
+/* 顯示 HP */
+#hp-container.show {
+    opacity: 1;
+}
+
+
+/* =========================================================
+   HP 實際血量
+   ========================================================= */
+
+#hp-bar {
+    width: 100%;
+    height: 100%;
+
+    background: #4caf50;
+
+    transition: width 0.2s ease;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   布丁本體
+   ========================================================= */
+
+#pudding:not(.frozen) {
+    display: block;
+
+    width: 260px;
+    height: auto;
+
+    top: 0;
+
+    margin: 0 auto;
+
+    opacity: 1;
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    position: relative;
+
+    transition: opacity 0.4s ease;
+
+    -webkit-user-drag: none;
+}
+
+/* =========================================================
+   布丁冰凍狀態
+   ========================================================= */
+
+#pudding.frozen {
+    width: 370px;
+    /* 往下移 */
+    top: 50px;
+}
+
+/* =========================================================
+   特效層
+   ========================================================= */
+
+#effect-layer {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 20;
+
+    overflow: hidden;
+
+    pointer-events: none;
+}
+/* =========================================================
+   投擲物層
+   ========================================================= */
+
+#projectile-layer {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 15;
+
+    overflow: hidden;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   番茄投擲物
+   ========================================================= */
+
+.tomato-projectile {
+    position: absolute;
+
+    width: 75px;
+    height: auto;
+
+    /* left / top 代表番茄中心 */
+    transform: translate(-50%, -50%);
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    -webkit-user-drag: none;
+}
+
+
+/* =========================================================
+   番茄砸地痕跡
+   ========================================================= */
+
+.tomato-splat {
+    position: absolute;
+
+    width: 130px;
+    height: auto;
+
+    /*
+     * left / top 都代表痕跡中心
+     */
+    transform: translate(-50%, -50%);
+
+    opacity: 1;
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    -webkit-user-drag: none;
+
+    transition: opacity 0.5s ease;
+}
+
+.tomato-splat.fade-out {
+    opacity: 0;
+}
+
+/* =========================================================
+   冰塊投擲物
+   ========================================================= */
+
+.ice-projectile {
+    position: absolute;
+
+    /* 冰塊比番茄稍微小一些 */
+    width: 65px;
+    height: 65px;
+
+    object-fit: contain;
+
+    /* 不影響滑鼠操作 */
+    pointer-events: none;
+
+    /* 在角色與場景物件上方 */
+    z-index: 25;
+
+    /*
+     * JS 之後會控制：
+     * left
+     * top
+     * transform
+     */
+}
+
+
+/* =========================================================
+   冰塊命中瞬間
+   ========================================================= */
+
+.ice-projectile.hit {
+    transform: scale(1.15);
+
+    opacity: 0;
+
+    transition:
+        transform 0.12s ease-out,
+        opacity 0.12s ease-out;
+}
+
+/* =========================================================
+   巧克力：飛行中
+   ========================================================= */
+
+.chocolate-projectile {
+    position: absolute;
+
+    width: 110px;
+    height: 110px;
+
+    object-fit: contain;
+
+    /*
+     * left / top 都代表圖片中心
+     */
+    transform: translate(-50%, -50%);
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    z-index: 25;
+
+    -webkit-user-drag: none;
+}
+
+
+/* =========================================================
+   巧克力：落地後
+   ========================================================= */
+
+.chocolate-ground {
+    position: absolute;
+
+    width: 110px;
+    height: 110px;
+
+    object-fit: contain;
+
+    /*
+     * 和飛行中的巧克力使用相同定位方式
+     */
+    transform: translate(-50%, -50%);
+
+    image-rendering: pixelated;
+
+    pointer-events: none;
+    user-select: none;
+
+    z-index: 12;
+
+    -webkit-user-drag: none;
+}
+
+
+/* =========================================================
+   巧克力落地彈跳
+   ========================================================= */
+
+.chocolate-ground.land {
+    animation:
+        chocolate-forward-bounce 0.55s ease-out forwards;
+}
+
+
+@keyframes chocolate-forward-bounce {
+
+    /* 第一次碰到桌面 */
+    0% {
+        transform:
+            translate(-50%, -50%)
+            translate(0, 0)
+            scaleX(1.10)
+            scaleY(0.90);
+    }
+
+
+    /* 往前大幅彈起 */
+    45% {
+        transform:
+            translate(-50%, -50%)
+            translate(-70px, -60px)
+            scaleX(0.96)
+            scaleY(1.04);
+    }
+
+
+    /* 往前落地 */
+    100% {
+        transform:
+            translate(-50%, -50%)
+            translate(-140px, 0)
+            scale(1);
+    }
+}
+
+
+/* =========================================================
+   被吃掉
+   ========================================================= */
+
+.chocolate-ground.eaten {
+    opacity: 0;
+
+    transform:
+        translate(-50%, -50%)
+        scale(0.4);
+
+    transition:
+        opacity 0.18s ease,
+        transform 0.18s ease;
+}
+
+/* =========================================================
+   巧克力變身動畫
+   ========================================================= */
+
+#pudding.chocolate-transform {
+    animation:
+        chocolate-transform 0.55s ease-out;
+}
+
+
+@keyframes chocolate-transform {
+
+    /* 開始 */
+    0% {
+        filter:
+            brightness(1);
+
+        transform:
+            scale(1);
+    }
+
+
+    /* 快速閃亮 */
+    20% {
+        filter:
+            brightness(2.5);
+
+        transform:
+            scale(1.08);
+    }
+
+
+    /* 最大膨脹 */
+    45% {
+        filter:
+            brightness(1.8);
+
+        transform:
+            scale(1.15);
+    }
+
+
+    /* 回彈 */
+    70% {
+        filter:
+            brightness(1.2);
+
+        transform:
+            scale(0.97);
+    }
+
+
+    /* 恢復 */
+    100% {
+        filter:
+            brightness(1);
+
+        transform:
+            scale(1);
+    }
+}
+
+
+/* =========================================================
+   巧克力變身粒子
+   ========================================================= */
+
+.chocolate-particle {
+    position: fixed;
+
+    width: 12px;
+    height: 12px;
+
+    border-radius: 50%;
+
+    background:
+        #8b4513;
+
+    pointer-events: none;
+
+    z-index: 100;
+
+    image-rendering: pixelated;
+
+    animation:
+        chocolate-particle-burst
+        0.6s
+        ease-out
+        forwards;
+}
+
+
+.chocolate-particle.gold {
+    background:
+        #ffd166;
+}
+
+
+@keyframes chocolate-particle-burst {
+
+    0% {
+        opacity: 1;
+
+        transform:
+            translate(0, 0)
+            scale(1);
+    }
+
+
+    100% {
+        opacity: 0;
+
+        transform:
+            translate(
+                var(--particle-x),
+                var(--particle-y)
+            )
+            scale(0.3);
+    }
+}
+
+/* =========================================================
+   巧克力布丁
+   ========================================================= */
+
+#pudding.chocolate {
+    width: 230px;
+}
+
+/* =========================================================
+   兌換提示
+   ========================================================= */
+
+/* =========================================================
+   兌換訊息容器
+   只負責堆疊位置
+   ========================================================= */
+
+#redeem-message {
+    position: absolute;
+
+    left: 50%;
+    top: 70px;
+
+    transform:
+        translateX(-50%);
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+
+    gap: 10px;
+
+    z-index: 100;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   單一兌換訊息
+   保留原本的視覺風格
+   ========================================================= */
+
+.redeem-message-item {
+    padding:
+        22px 40px;
+
+    font-size:
+        70px;
+
+    font-weight:
+        900;
+
+    color:
+        white;
+
+    background:
+        rgba(0, 0, 0, 0.75);
+
+    border:
+        4px solid
+        rgba(255, 255, 255, 0.9);
+
+    border-radius:
+        16px;
+
+    white-space:
+        nowrap;
+
+    opacity:
+        1;
+
+    pointer-events:
+        none;
+
+    text-shadow:
+        3px 3px 6px
+        rgba(0, 0, 0, 0.9);
+
+    transform:
+        translateY(0)
+        scale(1);
+
+    transition:
+        opacity 0.35s ease,
+        transform 0.35s ease;
+}
+
+/* =========================================================
+   訊息堆疊層級
+   ========================================================= */
+
+/* 最新 */
+.redeem-message-item:nth-child(1) {
+    opacity:
+        1;
+
+    transform:
+        translateY(0)
+        scale(1);
+}
+
+
+/* 第二則 */
+.redeem-message-item:nth-child(2) {
+    opacity:
+        0.72;
+
+    transform:
+        translateY(0)
+        scale(0.94);
+}
+
+
+/* 第三則 */
+.redeem-message-item:nth-child(3) {
+    opacity:
+        0.48;
+
+    transform:
+        translateY(0)
+        scale(0.88);
+}
+
+
+/* 第四則 */
+.redeem-message-item:nth-child(4) {
+    opacity:
+        0.28;
+
+    transform:
+        translateY(0)
+        scale(0.82);
+}
+
+/* =========================================================
+   訊息離場
+   ========================================================= */
+
+.redeem-message-item.removing {
+    opacity:
+        0 !important;
+
+    transform:
+        translateY(20px)
+        scale(0.78) !important;
+
+    transition:
+        opacity 0.5s ease,
+        transform 0.5s ease;
+}
+
+
+/* =========================================================
+   ×1 / ×2 / ×4
+   ========================================================= */
+
+.redeem-count {
+    display: inline-block;
+
+    margin-left: 14px;
+
+    font-size: 76px;
+    font-weight: 900;
+
+    color: white;
+}
+
+
+/* =========================================================
+   ×8 / ×16
+   ========================================================= */
+
+.redeem-count.medium {
+    font-size: 90px;
+
+    color: #ffd54f;
+
+    text-shadow:
+        0 0 12px rgba(255, 213, 79, 0.95),
+        3px 3px 6px rgba(0, 0, 0, 0.9);
+}
+
+
+/* =========================================================
+   ×32
+   ========================================================= */
+
+.redeem-count.large {
+    font-size: 110px;
+
+    color: #ff7043;
+
+    text-shadow:
+        0 0 12px #ff5722,
+        0 0 24px rgba(255, 87, 34, 0.95),
+        4px 4px 7px rgba(0, 0, 0, 0.9);
+
+    animation:
+        count-pop 0.35s ease;
+}
+
+
+/* =========================================================
+   ×64
+   ========================================================= */
+
+.redeem-count.legendary {
+    font-size: 135px;
+
+    color: #ffeb3b;
+
+    text-shadow:
+        0 0 10px #ff5722,
+        0 0 20px #ff5722,
+        0 0 35px rgba(255, 0, 0, 0.95),
+        4px 4px 8px rgba(0, 0, 0, 0.9);
+
+    animation:
+        legendary-count 0.45s ease infinite alternate;
+}
+
+
+/* =========================================================
+   動畫
+   ========================================================= */
+
+@keyframes count-pop {
+
+    0% {
+        transform: scale(0.5);
+    }
+
+    70% {
+        transform: scale(1.25);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+
+@keyframes legendary-count {
+
+    from {
+        transform: scale(1);
+    }
+
+    to {
+        transform: scale(1.15);
+    }
+}

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Pudding Game Overlay</title>
+
+    <link rel="stylesheet" href="/css/overlay.css">
+</head>
+
+<body>
+
+<div id="game">
+
+    <!-- =========================================
+         木桌背景
+         ========================================= -->
+    <img
+            id="table"
+            src="/images/game/table.png"
+            alt=""
+            draggable="false"
+    >
+
+
+    <!-- =========================================
+         左側固定重生盤子
+         ========================================= -->
+    <img
+            id="revive-plate"
+            src="/images/game/plate.png"
+            alt=""
+            draggable="false"
+    >
+
+    <div id="gameArea">
+
+        <!-- 其他場景 -->
+
+        <div id="eggObject">
+            <img
+                    id="egg"
+                    src="/images/game/objects/egg.png"
+                    alt=""
+                    draggable="false"
+            >
+        </div>
+
+        <div id="puddingContainer">
+            ...
+        </div>
+
+        <div id="sleep-platform">
+            <img
+                    id="pudding-platform"
+                    src="/images/game/objects/pudding-platform.png"
+                    alt=""
+            >
+        </div>
+
+    </div>
+
+
+    <!-- =========================================
+         怪物層
+
+         目前是空的。
+         未來 Twitch 觀眾召喚的怪物會放進這裡。
+         ========================================= -->
+    <div id="monster-layer"></div>
+
+    <!-- 投擲物層 -->
+    <div id="projectile-layer"></div>
+
+    <!-- 在地巧克力 -->
+    <img class="chocolate-ground land">
+
+    <!-- =========================================
+         布丁角色
+         ========================================= -->
+    <div id="pudding-container">
+
+        <!-- HP -->
+        <div id="hp-container">
+            <div id="hp-bar"></div>
+        </div>
+
+        <!-- 布丁 -->
+        <img
+                id="pudding"
+                src="/images/game/pudding.png"
+                alt=""
+                draggable="false"
+        >
+
+    </div>
+
+
+    <!-- 特效 / 地面痕跡 -->
+    <div id="effect-layer"></div>
+
+    <!--文字-->
+    <div id="redeem-message"></div>
+
+</div>
+
+
+<!-- =============================================
+     遊戲程式
+     ============================================= -->
+<script src="/js/overlay.js"></script>
+
+</body>
+
+</html>
